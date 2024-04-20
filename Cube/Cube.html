@@ -1,0 +1,771 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD><TITLE>Cube 2x2 Fazel Malekian</TITLE>
+
+<script language="JavaScript" type="text/javascript">
+
+var netscape = (document.layers) ? 1:0;
+var goodIE = (document.all) ? 1:0;
+var mozilla = (goodIE==0 && document.getElementById) ? 1: 0;
+if (netscape) {
+	window.captureEvents(Event.MOUSEDOWN);
+	window.onMouseDown = mouseclick;
+}else if (goodIE||mozilla) {
+	document.onmousedown=mouseclick;
+}
+
+var imagedir="images/cube/";
+function preload(){
+	this.length=preload.arguments.length;
+	for (var i=0;i<this.length;i++){
+		this[i]=new Image();
+		this[i].src=imagedir+preload.arguments[i];
+	}
+}
+var pics=new preload(
+			"ugreen.gif","uyellow.gif","uorange.gif","ured.gif","uwhite.gif","ublue.gif","ublank.gif",
+			"rgreen.gif","ryellow.gif","rorange.gif","rred.gif","rwhite.gif","rblue.gif","rblank.gif",
+			"lgreen.gif","lyellow.gif","lorange.gif","lred.gif","lwhite.gif","lblue.gif","lblank.gif",
+			"../buttons/edit.png","../buttons/edit2.png",
+			"../buttons/solve.png","../buttons/solve2.gif",
+			"../buttons/mix.png","../buttons/reset.png","../buttons/help.png");
+
+fletx=new Array();
+flety=new Array();
+
+function changeimage(lay,im,nw){
+	if(netscape){
+		document.layers[lay].document.images[im].src=nw;
+	}else{
+		eval("document.images."+im+".src=nw");
+	}
+}
+
+var posit = new Array ();
+function initbrd(){ //represents the state of the cube's facelets. Each facelet is assigned a number from 0 to 5, representing different colors.
+	posit = new Array (
+				2,2,2,2,
+				1,1,1,1,
+				0,0,0,0,
+				3,3,3,3,
+				4,4,4,4,
+				5,5,5,5);
+}
+initbrd();
+var mode = 0;   //0=normal  1=solving scrambled  2=edit
+var seq = new Array();
+
+function display(){ //function updates the cube's display based on the current state stored in the posit array. It uses the changeimage() function to change the source of the cube's face images.
+
+	for (var i=0; i<4; i++) changeimage("l"+i,"f"+i,pics[posit[i]].src);
+	for (var i=4; i<8; i++) changeimage("l"+i,"f"+i,pics[7+posit[i]].src);
+	for (var i=8; i<12;i++) changeimage("l"+i,"f"+i,pics[14+posit[i]].src);
+	for (var i=12;i<16;i++) changeimage("l"+i,"f"+i,pics[posit[i]].src);
+	for (var i=16;i<20;i++) changeimage("l"+i,"f"+i,pics[7+posit[i]].src);
+	for (var i=20;i<24;i++) changeimage("l"+i,"f"+i,pics[14+posit[i]].src);
+
+	if(mode==2) changeimage("but4","edit",pics[22].src);
+	else changeimage("but4","edit",pics[21].src);
+
+	if(mode==1 && solved()){
+		alert("You solved it!\nYou don't get a prize for this though!");
+		mode=0;
+	}
+}
+
+function solved(){ //function checks if the cube is solved by comparing the colors of facelets in each face.
+	for (var i=0;i<24; i+=4){
+		c=posit[i];
+		for(var j=1;j<4;j++)
+			if(posit[i+j]!=c) return(false);
+	}
+	return(true);
+}
+
+function reset(){
+	initbrd();
+	mode=0;
+	display();
+}
+
+function mix(){
+	initbrd();
+	for(var i=0;i<50;i++){
+		var f=Math.floor(Math.random()*6) + 16*Math.floor(Math.random()*3);
+		domove(f);
+	}
+	mode=1;
+	display();
+}
+
+function help(){
+	alert(
+		"Cube 2x2\n\n"+
+		"Fazel Malekian\n"+
+		"1402-03-22\n"+
+		"F=Front\n"+
+		"R=Right\n"+
+		"U=Up");mix
+}
+
+function getfacelet(e){ //function calculates the facelet index based on the position of a mouse click event.
+	var clickX, clickY;
+	if(netscape||mozilla){
+		clickX = e.pageX;
+		clickY = e.pageY;
+	}else{
+		clickX =window.event.clientX-2;
+		clickY =window.event.clientY-2;
+	}
+	for (var j=12; j>=0; j-=12) {
+		for (var i=0; i<12; i++) {
+			var x=clickX-fletx[i+j];
+			var y=clickY-flety[i+j];
+			if(i<4){
+				if( y+y+x<=82 && y+y+x>=31 && y+y-x<=25 && y+y-x>=-26 ) return(i+j);
+			}else if(i<8){
+				if( x>=2 && x<=27 && y+y+x>=31 && y+y+x<=92 ) return(i+j);
+			}else {
+				if( x>=2 && x<=27 && y+y-x>=2 && y+y-x<=63 ) return(i+j);
+			}
+		}
+	}
+	return(-1)
+}
+
+function onResize(){
+	//reload after resizing. makhsuse buge Netscape.
+	document.location.reload()
+}
+
+
+var piece=new Array(15,16,16,21,21,15,  13,9,9,17,17,13,  14,20,20,4,4,14,  12,5,5,8,8,12,
+						3,23,23,18,18,3,   1,19,19,11,11,1,  2,6,6,22,22,2,    0,10,10,7,7,0);
+var adj=new Array();
+adj[0]=new Array();
+adj[1]=new Array();
+adj[2]=new Array();
+adj[3]=new Array();
+adj[4]=new Array();
+adj[5]=new Array();
+var opp=new Array();
+var auto;
+var tot;
+function edit(){
+	var i;
+	if(mode!=2) mode=2;
+	for(i=0;i<24;i++) posit[i]=6;						//clear board
+	for(i=0;i<6;i++) adj[i]=new Array(0,0,0,0,0,0);		//pak kardane hamjavar ha count array
+	opp=new Array(0,0,0,0,0,0,0);						//pak kardane rang haye motazad
+	display();
+}
+function mouseclick(e){
+	var f=getfacelet(e);
+	if(f>=0) clicked(f);
+}
+function clicked(f){
+	if(mode==2){  //editing
+		if(posit[f]==6){
+			//kodam rang ra estefade konim;
+			calctot();
+			for(var e=0;e<6;e++) if(tot[e]<4) break;
+
+			//por kardane facelet
+			posit[f]=e;
+
+			//save kardane changes made
+			auto=new Array(); auto[0]=f;
+
+			//amade sazi khane haye ham javar
+			calcadj();
+
+			//check it is ok
+			e = checkfacelets();
+			if(e>0){
+				//undo changes
+				for(e=0;e<auto.length;e++) posit[auto[e]]=6;
+			}else if(e<0){
+				mode=1;
+			}
+			display();
+		}
+	}else{
+		if(mode>=3) mode=1;
+		domove(f>>2);
+		display();
+	}
+}
+
+function calcadj(){
+	//shemordane tamame khune haye hamjavar (be surate clockwise)
+	var a,b;
+	for(a=0;a<6;a++)for(b=0;b<6;b++) adj[a][b]=0;
+	for(a=0;a<48;a+=2){
+		if(posit[piece[a]]<=5 && posit[piece[a+1]]<=5 )
+			adj[posit[piece[a]]][posit[piece[a+1]]]++;
+	}
+}
+function calctot(){
+	//che tedad az har rang hast
+	tot=new Array(0,0,0,0,0,0,0);
+	for(var e=0;e<24;e++) tot[posit[e]]++;
+}
+
+function checkfacelets(){
+	var e;
+	//filtere automati va kodam rang ejazeye neshastane ghanuni ra darad
+	while( (e=autofill())>0 );
+	if(e<0) return(-e);
+
+	//check kardane inke aya hame por shodand?
+	for(a=0;a<24;a++){
+		if(posit[a]>5) return 0;
+	}
+	return -1;
+}
+
+function autofill(){
+	//por kardane faghat yek range momken dar har khane
+	var a,b,c,d;
+
+	//calc arrays
+	calctot();
+	calcadj();
+
+	//1- khane haye hamjavar yekrang nabashand
+	if(adj[0][0]+adj[1][1]+adj[2][2]+adj[3][3]+adj[4][4]+adj[5][5]!=0 ){
+		return(-1);
+	}
+
+	// chek kardane inke har do range mojaver motazad nabashand ya 
+	// daghighan joft bashand (once clockwise, once anti-clockwise)
+	for(a=1;a<6;a++) for(b=0;b<a;b++){
+		if(tot[a]==4 && tot[b]==4){
+			if(adj[b][a]!=adj[a][b]) return(-2);
+		}else
+			if( adj[b][a]>1 || adj[a][b]>1 ) return(-2);
+	}
+
+
+	// ckek kardane kole dote ee ha
+	for(a=1;a<6;a++){
+		if(tot[a]==4){
+			for(b=0;b<a;b++){
+				if( tot[b]==4 && adj[a][b]==0 ){
+					c=0;
+					for(d=0;d<48;d+=6){
+						if(      posit[piece[d  ]]==a || posit[piece[d  ]]==b) c+=0;
+						else if( posit[piece[d+2]]==a || posit[piece[d+2]]==b) c+=1;
+						else if( posit[piece[d+4]]==a || posit[piece[d+4]]==b) c+=2;
+						if(c>2) c-=3;
+					}
+					if(c) return(-3);
+				}
+			}
+		}
+	}
+
+	//check that don't have set of mirror image pieces
+	for(a=6;a<48;a+=6){
+		if(posit[piece[a]]<=5 && posit[piece[a+2]]<=5 && posit[piece[a+4]]<=5 ){	//find complete piece
+			for(b=0;b<a;b+=6){
+				if(posit[piece[b]]<=5 && posit[piece[b+2]]<=5 && posit[piece[b+4]]<=5 ){	//second full piece
+					if(posit[piece[a]]==posit[piece[b]] && posit[piece[a+2]]==posit[piece[b+4]] && posit[piece[a+4]]==posit[piece[b+2]] ) return(-4);
+					if(posit[piece[a]]==posit[piece[b+2]] && posit[piece[a+2]]==posit[piece[b]] && posit[piece[a+4]]==posit[piece[b+4]] ) return(-4);
+					if(posit[piece[a]]==posit[piece[b+4]] && posit[piece[a+4]]==posit[piece[b]] && posit[piece[a+2]]==posit[piece[b+2]] ) return(-4);
+				}
+			}
+		}
+	}
+
+	//done with checking for now. Start filling in facelets
+
+	if(tot[0]+tot[1]+tot[2]<12 && adj[0][1]+adj[1][0]==2 && adj[0][2]+adj[2][0]==1 && adj[1][2]+adj[2][1]==1){
+		//side 2 will be adjacent to both 0 and 1, as already have pieces with them adjacent
+		//Therefore we should have a piece with all three colours on it, in right order.
+		//First check we do not have that piece already
+		for(a=0;a<48;a+=6){
+			if( posit[piece[a]]!=6 && posit[piece[a+2]]!=6 && posit[piece[a+4]]!=6 ) break;
+		}
+		if(a>=48){
+			//don't have one yet. find the correct one;
+			//first however, check that situation is still legal
+			if(adj[0][2]==adj[1][2]) return -1;
+			for(a=0;a<48;a+=6){
+				if( posit[piece[a]]+posit[piece[a+2]]+posit[piece[a+4]]==7){	//0+1+6
+					b=a;d=a+4;
+					if(posit[piece[a  ]]==6){ b=a+2;d=a;   }
+					if(posit[piece[a+2]]==6){ b=a+4;d=a+2; }
+					if( (posit[piece[b]]==0 && adj[0][2]==1) ||
+					    (posit[piece[b]]==1 && adj[1][2]==1) ){
+					    	posit[piece[d]]=2;
+					    	auto[auto.length]=piece[d];
+					    	return 1;
+					}
+				}
+			}
+		}
+	}
+
+	// find completed colour a
+	for(a=0;a<6 && tot[a]==4 ;a++){
+		// find colour adjacent to a
+		for(b=0;b<6;b++){
+			if( adj[a][b]==1 && adj[b][a]==1 ){
+				// find second colour adjacent to a
+				for(c=b+1;c<6;c++){
+					if( adj[a][c]==1 && adj[c][a]==1 ){
+						//find colour which has only one facelet adjacent to a
+						// so that can then fill in the second facelet adjacent to a.
+						for(d=0;d<6;d++){
+							if(d!=a && d!=b && d!=c && adj[a][d]+adj[d][a]==1){
+								//Found it.
+
+								//find piece with colour a, empty space on correct side, not colour d.
+								for(e=0;e<48;e+=6){
+									if(posit[piece[e]]==a || posit[piece[e+2]]==a || posit[piece[e+4]]==a){
+									if(posit[piece[e]]==6 || posit[piece[e+2]]==6 || posit[piece[e+4]]==6){
+									if(posit[piece[e]]!=d && posit[piece[e+2]]!=d && posit[piece[e+4]]!=d){
+										var f1,f2;
+										if     (posit[piece[e  ]]==a) { f1=e+2;f2=e+4; }
+										else if(posit[piece[e+2]]==a) { f1=e+4;f2=e  ; }
+										else if(posit[piece[e+4]]==a) { f1=e  ;f2=e+2; }
+										if( (adj[a][d]==1 && posit[piece[f2]]==6) ||
+											(adj[d][a]==1 && posit[piece[f1]]==6) ) {
+
+											//make sure won't make mirror image pieces
+											if( (adj[b][c]+adj[c][b]==0 &&
+											     ((adj[b][d]+adj[d][b]>adj[c][d]+adj[d][c] && posit[piece[f1]]!=b && posit[piece[f2]]!=b) ||
+											      (adj[c][d]+adj[d][c]>adj[b][d]+adj[d][b] && posit[piece[f1]]!=c && posit[piece[f2]]!=c) ))
+											  ||(adj[b][c]+adj[c][b]!=0 && (
+											    (posit[piece[f1]]!=c && posit[piece[f1]]!=b && posit[piece[f2]]!=c && posit[piece[f2]]!=b)
+											    || adj[d][b]+adj[b][d]+adj[d][c]+adj[c][d]==0 )
+											  )
+											){
+
+												if(adj[a][d]==1){
+													posit[piece[f2]]=d;
+													auto[auto.length]=piece[f2];
+												}else{
+													posit[piece[f1]]=d;
+													auto[auto.length]=piece[f1];
+												}
+												return 1;
+											}
+										}
+									}
+									}
+									}
+								}
+								return -1;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	//determine last of two opposing colours by using twist
+	for(a=0;a<6;a++){
+		if(tot[a]==4){
+			for(b=0;b<6;b++){
+				if(tot[b]==3 && adj[a][b]+adj[b][a]==0){
+					c=0;e=0;
+					for(d=0;d<48;d+=6){
+						if(      posit[piece[d  ]]==a || posit[piece[d  ]]==b) c+=0;
+						else if( posit[piece[d+2]]==a || posit[piece[d+2]]==b) c+=1;
+						else if( posit[piece[d+4]]==a || posit[piece[d+4]]==b) c+=2;
+						else e=d;
+						if(c>2) c-=3;
+					}
+					if(     c==0 && posit[piece[e  ]]==6){
+						posit[piece[e  ]]=b;
+						auto[auto.length]=piece[e];
+					}else if(c==1 && posit[piece[e+4]]==6){
+						posit[piece[e+4]]=b;
+						auto[auto.length]=piece[e+4];
+					}else if(c==2 && posit[piece[e+2]]==6){
+						posit[piece[e+2]]=b;
+						auto[auto.length]=piece[e+2];
+					}else {
+						return -1;
+					}
+					return 1;
+				}
+			}
+		}
+	}
+
+	// No more to be deduced, except possibly final 4 facelets
+	calctot();
+	if(tot[4]==4 && tot[5]<4){
+		for(a=0;a<24;a++){
+			if(posit[a]==6){
+				posit[a]=5;
+				auto[auto.length]=a;
+				return 1;
+			}
+		}
+	}
+	//Nothing left to be filled automatically. Check that still ok
+	calcadj();
+	for(a=1;a<6;a++){
+		if(tot[a]==4){
+			for(b=0;b<a;b++){
+				if(adj[a][b]!=adj[b][a] || adj[a][b]>1) return -1;
+			}
+		}else{
+			for(b=0;b<a;b++){
+				if(adj[a][b]>1 || adj[b][a]>1) return -1;
+			}
+		}
+		if(tot[a]==3 && a>=2){
+			for(b=1;b<a;b++) for(c=0;c<b;c++){
+				if(adj[b][c]==1 && adj[a][b]+adj[b][a]==1 && adj[a][c]+adj[c][a]==1 ){
+					//colours a, b and c are all all adjacent, and final facelet of colour a
+					// must be one abc corner. Therefore should not already be another abc corner.
+					for(d=0;d<48;d+=6){
+						if( (posit[piece[d  ]]==a || posit[piece[d  ]]==b || posit[piece[d  ]]==c) &&
+							(posit[piece[d+2]]==a || posit[piece[d+2]]==b || posit[piece[d+2]]==c) &&
+							(posit[piece[d+4]]==a || posit[piece[d+4]]==b || posit[piece[d+4]]==c) ){
+								return -1;
+						}
+					}
+				}
+			}
+		}
+	}
+	return 0;
+}
+
+
+mov2fc=new Array()
+mov2fc[0]=new Array(0, 2, 3, 1, 23,19,10,6 ,22,18,11,7 ); //D
+mov2fc[1]=new Array(4, 6, 7, 5, 12,20,2, 10,14,22,0, 8 ); //L
+mov2fc[2]=new Array(8, 10,11,9, 12,7, 1, 17,13,5, 0, 19); //B
+mov2fc[3]=new Array(12,13,15,14,8, 17,21,4, 9, 16,20,5 ); //U
+mov2fc[4]=new Array(16,17,19,18,15,9, 1, 23,13,11,3, 21); //R
+mov2fc[5]=new Array(20,21,23,22,14,16,3, 6, 15,18,2, 4 ); //F
+
+//**********************************************************
+
+function domove(y){
+	var q=1+(y>>4);
+	var f=y&15;
+	while(q){
+		for(var i=0;i<mov2fc[f].length;i+=4){
+			var c=posit[mov2fc[f][i]];
+			posit[mov2fc[f][i]]=posit[mov2fc[f][i+3]];
+			posit[mov2fc[f][i+3]]=posit[mov2fc[f][i+2]];
+			posit[mov2fc[f][i+2]]=posit[mov2fc[f][i+1]];
+			posit[mov2fc[f][i+1]]=c;
+		}
+		q--;
+	}
+}
+
+sol=new Array();
+function solve(){
+	if(mode<2){
+		signon();
+		mode=0;
+		setTimeout("dosolve()",0);  //do this via timer so that sign will be shown first
+	}
+}
+function dosolve(){
+	//find adjacent/opposite colour pairs
+	calcadj();
+	var opp=new Array();
+	for(a=0;a<6;a++){
+		for(b=0;b<6;b++){
+			if(a!=b && adj[a][b]+adj[b][a]==0) { opp[a]=b; opp[b]=a; }
+		}
+	}
+	//Each piece is determined by which of each pair of opposite colours it uses.
+	var ps=new Array();
+	var tws=new Array();
+	var a=0;
+	for(var d=0; d<7; d++){
+		var p=0;
+		for(b=a;b<a+6;b+=2){
+			if(posit[piece[b]]==posit[piece[42]]) p+=4;
+			if(posit[piece[b]]==posit[piece[44]]) p+=1;
+			if(posit[piece[b]]==posit[piece[46]]) p+=2;
+		}
+		ps[d]=p;
+		if(posit[piece[a]]==posit[piece[42]] || posit[piece[a]]==opp[posit[piece[42]]]) tws[d]=0;
+		else if(posit[piece[a+2]]==posit[piece[42]] || posit[piece[a+2]]==opp[posit[piece[42]]]) tws[d]=1;
+		else tws[d]=2;
+		a+=6;
+	}
+	//convert position to numbers
+	var q=0;
+	for(var a=0;a<7;a++){
+		var b=0;
+		for(var c=0;c<7;c++){
+			if(ps[c]==a)break;
+			if(ps[c]>a)b++;
+		}
+		q=q*(7-a)+b;
+	}
+	var t=0;
+	for(var a=5;a>=0;a--){
+		t=t*3+tws[a]-3*Math.floor(tws[a]/3);
+	}
+	if(q!=0 || t!=0){
+		sol.length=0;
+		for(var l=0;l<12;l++){	//max length of solution is 11
+			if(search(0,q,t,l,-1)) break;
+		}
+		t="Solution:";
+		for(q=0;q<sol.length;q++){
+			t+=" "+"URF".charAt(sol[q]/10)+" 2\'".charAt(sol[q]%10);
+		}
+		alert(t);
+	}
+	signoff();
+}
+
+function search(d,q,t,l,lm){
+	//searches for solution, from position q|t, in l moves exactly. last move was lm, current depth=d
+	if(l==0){
+		if(q==0 && t==0){
+			return(true);
+		}
+	}else{
+		if(perm[q]>l || twst[t]>l) return(false);
+		var p,s,a,m;
+		for(m=0;m<3;m++){
+			if(m!=lm){
+				p=q; s=t;
+				for(a=0;a<3;a++){
+					p=permmv[p][m];
+					s=twstmv[s][m];
+					sol[d]=10*m+a;
+					if(search(d+1,p,s,l-1,m)) return(true);
+				}
+			}
+		}
+	}
+	return(false);
+}
+
+perm=new Array();
+twst=new Array();
+permmv=new Array()
+twstmv=new Array();
+function calcperm(){
+	//calculate solving arrays
+	//first permutation
+
+	for(var p=0;p<5040;p++){
+		perm[p]=-1;
+		permmv[p]=new Array();
+		for(var m=0;m<3;m++){
+			permmv[p][m]=getprmmv(p,m);
+		}
+	}
+
+	perm[0]=0;
+	for(var l=0;l<=6;l++){
+		var n=0;
+		for(var p=0;p<5040;p++){
+			if(perm[p]==l){
+				for(var m=0;m<3;m++){
+					var q=p;
+					for(var c=0;c<3;c++){
+						var q=permmv[q][m];
+						if(perm[q]==-1) { perm[q]=l+1; n++; }
+					}
+				}
+			}
+		}
+	}
+
+	//then twist
+	for(var p=0;p<729;p++){
+		twst[p]=-1;
+		twstmv[p]=new Array();
+		for(var m=0;m<3;m++){
+			twstmv[p][m]=gettwsmv(p,m);
+		}
+	}
+
+	twst[0]=0;
+	for(var l=0;l<=5;l++){
+		var n=0;
+		for(var p=0;p<729;p++){
+			if(twst[p]==l){
+				for(var m=0;m<3;m++){
+					var q=p;
+					for(var c=0;c<3;c++){
+						var q=twstmv[q][m];
+						if(twst[q]==-1) { twst[q]=l+1; n++; }
+					}
+				}
+			}
+		}
+	}
+	//remove wait sign
+	signoff();
+}
+
+function signoff(){
+	if(netscape){
+		document.wait.visibility="hidden";
+	}else if(goodIE){
+		document.all.wait.style.visibility="hidden";
+	}else{
+		document.getElementById('wait').style.visibility="hidden";
+	}
+}
+function signon(){
+	if(netscape){
+		document.wait.visibility="visible";
+	}else if(goodIE){
+		document.all.wait.style.visibility="visible";
+	}else{
+		document.getElementById('wait').style.visibility="visible";
+	}
+}
+
+
+function getprmmv(p,m){
+	//given position p<5040 and move m<3, return new position number
+	var a,b,c,q;
+	//convert number into array;
+	var ps=new Array()
+	q=p;
+    for(a=1;a<=7;a++){
+		b=q%a;
+		q=(q-b)/a;
+		for(c=a-1;c>=b;c--) ps[c+1]=ps[c];
+		ps[b]=7-a;
+	}
+	//perform move on array
+	if(m==0){
+		//U
+		c=ps[0];ps[0]=ps[1];ps[1]=ps[3];ps[3]=ps[2];ps[2]=c;
+	}else if(m==1){
+		//R
+		c=ps[0];ps[0]=ps[4];ps[4]=ps[5];ps[5]=ps[1];ps[1]=c;
+	}else if(m==2){
+		//F
+		c=ps[0];ps[0]=ps[2];ps[2]=ps[6];ps[6]=ps[4];ps[4]=c;
+	}
+	//convert array back to number
+	q=0;
+	for(a=0;a<7;a++){
+		b=0;
+		for(c=0;c<7;c++){
+			if(ps[c]==a)break;
+			if(ps[c]>a)b++;
+		}
+		q=q*(7-a)+b;
+	}
+	return(q)
+}
+function gettwsmv(p,m){
+	//given orientation p<729 and move m<3, return new orientation number
+	var a,b,c,d,q;
+	//convert number into array;
+	var ps=new Array()
+	q=p;
+    d=0;
+	for(a=0;a<=5;a++){
+		c=Math.floor(q/3);
+		b=q-3*c;
+		q=c;
+		ps[a]=b;
+		d-=b;if(d<0)d+=3;
+	}
+	ps[6]=d;
+	//perform move on array
+	if(m==0){
+		//U
+		c=ps[0];ps[0]=ps[1];ps[1]=ps[3];ps[3]=ps[2];ps[2]=c;
+	}else if(m==1){
+		//R
+		c=ps[0];ps[0]=ps[4];ps[4]=ps[5];ps[5]=ps[1];ps[1]=c;
+		ps[0]+=2; ps[1]++; ps[5]+=2; ps[4]++;
+	}else if(m==2){
+		//F
+		c=ps[0];ps[0]=ps[2];ps[2]=ps[6];ps[6]=ps[4];ps[4]=c;
+		ps[2]+=2; ps[0]++; ps[4]+=2; ps[6]++;
+	}
+	//convert array back to number
+	q=0;
+	for(a=5;a>=0;a--){
+		q=q*3+(ps[a]%3);
+	}
+	return(q);
+}
+
+
+
+function dostyle(x0,y0,dx1,dy1,dx2,dy2,i0){
+	var str="";
+	var n=i0;
+	for(var i=0;i<2;i++){
+		for(var j=0;j<2;j++){
+			fletx[n]=x0+dx1*i+dx2*j;
+			flety[n]=y0+dy1*i+dy2*j;
+			str+="#l"+(i0+i*2+j)+" {position:absolute; left:"+fletx[n]+"; top:"+flety[n]+"; width:1;}\n";
+			n++;
+		}
+	}
+	return(str);
+}
+var s = '<STYLE TYPE="text/css">\n'+
+	dostyle( 90,150,-28,14,28, 14, 0)+
+	dostyle( 16, 16,  0,33,28,-14, 4)+
+	dostyle(164,  2,  0,33,28, 14, 8)+
+	dostyle( 90, 36,-28,14,28, 14,12)+
+	dostyle(118, 78,  0,33,28,-14,16)+
+	dostyle( 62, 64,  0,33,28, 14,20)+
+	"#but1{position:absolute; left:000; top:210; width:1;}\n"+
+	"#but2{position:absolute; left:048; top:210; width:1;}\n"+
+	"#but3{position:absolute; left:096; top:210; width:1;}\n"+
+	"#but4{position:absolute; left:144; top:210; width:1;}\n"+
+	"#but5{position:absolute; left:192; top:210; width:1;}\n"+
+	"#wait{position:absolute; left:20;   top:100; width:200;}\n"+
+	"<\/STYLE>";
+document.write(s);
+//--></script>
+
+</HEAD>
+
+
+<BODY>
+<script language="JavaScript" type="text/javascript">
+function dodiv(im,w,h,i0){
+	var str=''
+	for(var i=0;i<4;i++){
+		str+="<div id=l"+(i0+i)+"><img src='"+im+"' name=f"+(i0+i)+" width="+w+" height="+h+" border=0><\/div>\n";
+	}
+	return(str);
+}
+var s = dodiv('images/ublank.gif',58,29, 0)+
+		dodiv('images/rblank.gif',30,48, 4)+
+		dodiv('images/lblank.gif',30,48, 8)+
+		dodiv('images/ublank.gif',58,29,12)+
+		dodiv('images/rblank.gif',30,48,16)+
+		dodiv('images/lblank.gif',30,48,20)+
+		"<div id=but1><a href='javascript:mix();  '><img src='"+pics[25].src+"' width=48 height=16 border=0><\/a><\/div>"+
+		"<div id=but2><a href='javascript:reset();'><img src='"+pics[26].src+"' width=48 height=16 border=0><\/a><\/div>"+
+		"<div id=but3><a href='javascript:solve();'><img src='"+pics[23].src+"' name='solve' width=48 height=16 border=0><\/a><\/div>"+
+		"<div id=but4><a href='javascript:edit(); '><img src='"+pics[21].src+"' name='edit' width=48 height=16 border=0><\/a><\/div>"+
+		"<div id=but5><a href='javascript:help(); '><img src='"+pics[27].src+"' width=48 height=16 border=0><\/a><\/div>"+
+		"<div id=wait><center><table><tr><td bgcolor=white><big><big>Please wait....<\/big><\/big><\/td><\/tr><\/table><\/center><\/div>";
+
+document.write(s);
+
+display();
+
+setTimeout("calcperm()",0);  //do this via timer so that display will be shown first
+
+//-->
+</script>
+</BODY>
+</HTML>
